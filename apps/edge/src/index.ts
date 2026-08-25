@@ -2,15 +2,23 @@ import { Hono } from 'hono';
 import { FixtureSearchProvider, PerfectCorpProvider, SerpApiSearchProvider } from '@rewear/providers';
 import {
   candidateSetPayloadSchema,
+  candidateTaskActionSchema,
+  candidateTryOnSchema,
   imageTicketSchema,
   inventorySearchSchema,
   relayPlanSchema,
   relayRankInputSchema,
   relayRequestSchema,
   taskIdSchema,
-  tryOnSchema
+  tryOnSchema,
+  vtoBindingPayloadSchema
 } from '@rewear/validation';
-import { signCandidateSet, verifyCandidateSet } from './candidateSet';
+import {
+  signCandidateSet,
+  signVtoBinding,
+  verifyCandidateSet,
+  verifyVtoBinding
+} from './candidateSet';
 
 type Bindings = {
   PERFECT_API_KEY: string;
@@ -73,6 +81,52 @@ function rigBaseUrl(c: any) {
   url.search = '';
   url.hash = '';
   return url.toString().replace(/\/$/, '');
+}
+
+function publicHttpsReference(raw: string | undefined): string {
+  if (!raw) throw new Error('CANDIDATE_IMAGE_MISSING');
+  let url: URL;
+  try { url = new URL(raw); }
+  catch { throw new Error('CANDIDATE_IMAGE_UNSAFE'); }
+  if (url.protocol !== 'https:') throw new Error('CANDIDATE_IMAGE_UNSAFE');
+
+  const host = url.hostname.toLowerCase().replace(/^\[|\]$/g, '');
+  if (!host || host === 'localhost' || host.endsWith('.localhost') || host.endsWith('.local') || host.includes(':')) {
+    throw new Error('CANDIDATE_IMAGE_UNSAFE');
+  }
+
+  const match = host.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+  if (match) {
+    const [a,b,c,d] = match.slice(1).map(Number);
+    if ([a,b,c,d].some((part) => part < 0 || part > 255)) throw new Error('CANDIDATE_IMAGE_UNSAFE');
+    if (
+      a === 0 || a === 10 || a === 127 || a >= 224 ||
+      (a === 100 && b >= 64 && b <= 127) ||
+      (a === 169 && b === 254) ||
+      (a === 172 && b >= 16 && b <= 31) ||
+      (a === 192 && b === 168) ||
+      (a === 198 && (b === 18 || b === 19))
+    ) throw new Error('CANDIDATE_IMAGE_UNSAFE');
+  }
+
+  url.username = '';
+  url.password = '';
+  return url.toString();
+}
+
+async function verifiedCandidateSet(c: any, token: string) {
+  const decoded = await verifyCandidateSet(searchSigningKey(c), token);
+  const candidateSet = candidateSetPayloadSchema.parse(decoded);
+  if (Date.parse(candidateSet.expiresAt) <= Date.now()) throw new Error('CANDIDATE_SET_EXPIRED');
+  return candidateSet;
+}
+
+async function verifiedVtoBinding(c: any, taskId: string, token: string, allowExpired = false) {
+  const decoded = await verifyVtoBinding(searchSigningKey(c), token);
+  const binding = vtoBindingPayloadSchema.parse(decoded);
+  if (binding.taskId !== taskId) throw new Error('VTO_BINDING_MISMATCH');
+  if (!allowExpired && Date.parse(binding.expiresAt) <= Date.now()) throw new Error('VTO_BINDING_EXPIRED');
+  return binding;
 }
 
 app.get('/api/health', (c) => c.json({
@@ -166,9 +220,7 @@ app.post('/api/search', async (c) => {
 
 app.post('/api/relay/rank', async (c) => {
   const input = relayRankInputSchema.parse(await c.req.json());
-  const decoded = await verifyCandidateSet(searchSigningKey(c), input.candidateSetToken);
-  const candidateSet = candidateSetPayloadSchema.parse(decoded);
-  if (Date.parse(candidateSet.expiresAt) <= Date.now()) throw new Error('CANDIDATE_SET_EXPIRED');
+  const candidateSet = await verifiedCandidateSet(c, input.candidateSetToken);
 
   const request = relayRequestSchema.parse({
     source: candidateSet.source,
@@ -202,7 +254,6 @@ app.post('/api/relay/rank', async (c) => {
 
     const plan = relayPlanSchema.parse(await response.json());
     const allowed = new Set(request.candidates.map((candidate) => candidate.id));
-
     if (plan.source_item_id !== request.source.id) throw new Error('RIG_PLAN_REJECTED');
 
     const seen = new Set<string>();
@@ -225,10 +276,60 @@ app.post('/api/relay/rank', async (c) => {
   }
 });
 
+app.post('/api/tryon/candidate', async (c) => {
+  const input = candidateTryOnSchema.parse(await c.req.json());
+  const candidateSet = await verifiedCandidateSet(c, input.candidateSetToken);
+  const candidate = candidateSet.inventory.find((item) => item.id === input.candidateId);
+  if (!candidate) throw new Error('CANDIDATE_NOT_IN_SET');
+
+  const garmentImageUrl = publicHttpsReference(candidate.imageUrl);
+  const task = await perfect(c).createTryOn({
+    personFileId: input.personFileId,
+    garmentFileUrl: garmentImageUrl,
+    garmentCategory: input.garmentCategory ?? candidate.garmentCategory ?? 'auto'
+  });
+
+  const createdAt = new Date().toISOString();
+  const binding = vtoBindingPayloadSchema.parse({
+    version: 1,
+    taskId: task.taskId,
+    candidateId: candidate.id,
+    sourceItemId: candidateSet.source.id,
+    personFileId: input.personFileId,
+    garmentImageUrl,
+    candidateSetObservedAt: candidateSet.observedAt,
+    createdAt,
+    expiresAt: new Date(Date.parse(createdAt) + 30 * 60 * 1000).toISOString()
+  });
+  const bindingToken = await signVtoBinding(searchSigningKey(c), binding);
+
+  return c.json({
+    taskId: task.taskId,
+    bindingToken,
+    candidate: {id: candidate.id, title: candidate.title, source: candidate.source, imageUrl: garmentImageUrl},
+    candidateSet: {observedAt: candidateSet.observedAt, receivedAt: candidateSet.receivedAt}
+  }, 202);
+});
+
+app.post('/api/tryon/candidate/status', async (c) => {
+  const input = candidateTaskActionSchema.parse(await c.req.json());
+  const binding = await verifiedVtoBinding(c, input.taskId, input.bindingToken);
+  const status = await perfect(c).getTryOn(input.taskId);
+  return c.json({...status, binding: {candidateId: binding.candidateId, sourceItemId: binding.sourceItemId}});
+});
+
+app.post('/api/tryon/candidate/delete', async (c) => {
+  const input = candidateTaskActionSchema.parse(await c.req.json());
+  const binding = await verifiedVtoBinding(c, input.taskId, input.bindingToken, true);
+  await perfect(c).deleteTask(input.taskId);
+  return c.json({deleted: true, candidateId: binding.candidateId});
+});
+
 app.onError((error, c) => {
   console.error('request_failed', { name: error.name, message: error.message });
   const safeCodes = new Set([
     'PERFECT_API_KEY_MISSING',
+    'PERFECT_REFERENCE_INVALID',
     'RIG_RUNTIME_MISSING',
     'RIG_RUNTIME_INVALID',
     'RIG_RUNTIME_UNAVAILABLE',
@@ -239,14 +340,24 @@ app.onError((error, c) => {
     'SEARCH_SIGNING_KEY_MISSING',
     'SEARCH_SIGNING_KEY_WEAK',
     'CANDIDATE_SET_TOKEN_INVALID',
-    'CANDIDATE_SET_EXPIRED'
+    'CANDIDATE_SET_EXPIRED',
+    'CANDIDATE_NOT_IN_SET',
+    'CANDIDATE_IMAGE_MISSING',
+    'CANDIDATE_IMAGE_UNSAFE',
+    'VTO_BINDING_TOKEN_INVALID',
+    'VTO_BINDING_MISMATCH',
+    'VTO_BINDING_EXPIRED'
   ]);
   const safeMessage = error.message.startsWith('PERFECT_') || safeCodes.has(error.message)
     ? error.message
     : 'REQUEST_FAILED';
   const status = ['RIG_RUNTIME_UNAVAILABLE', 'SEARCH_PROVIDER_UNAVAILABLE'].includes(safeMessage)
     ? 503
-    : ['CANDIDATE_SET_TOKEN_INVALID', 'CANDIDATE_SET_EXPIRED'].includes(safeMessage)
+    : [
+        'CANDIDATE_SET_TOKEN_INVALID', 'CANDIDATE_SET_EXPIRED', 'CANDIDATE_NOT_IN_SET',
+        'CANDIDATE_IMAGE_MISSING', 'CANDIDATE_IMAGE_UNSAFE', 'VTO_BINDING_TOKEN_INVALID',
+        'VTO_BINDING_MISMATCH', 'VTO_BINDING_EXPIRED'
+      ].includes(safeMessage)
       ? 400
       : 500;
   return c.json({ error: safeMessage }, status);
