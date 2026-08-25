@@ -125,13 +125,14 @@ app.post('/api/search', async (c) => {
     throw new Error('SEARCH_PROVIDER_UNAVAILABLE');
   }
 
-  const expiresAt = new Date(Date.parse(result.observedAt) + searchReceiptTtl(c) * 1000).toISOString();
+  const expiresAt = new Date(Date.parse(result.receivedAt) + searchReceiptTtl(c) * 1000).toISOString();
   if (result.candidates.length === 0) {
     return c.json({
       provider: result.provider,
       query: result.query,
       providerQuery: result.providerQuery,
       observedAt: result.observedAt,
+      receivedAt: result.receivedAt,
       expiresAt,
       candidates: [],
       candidateSetToken: null
@@ -144,6 +145,7 @@ app.post('/api/search', async (c) => {
     query: result.query,
     providerQuery: result.providerQuery,
     observedAt: result.observedAt,
+    receivedAt: result.receivedAt,
     expiresAt,
     source: input.source,
     inventory: result.candidates
@@ -155,6 +157,7 @@ app.post('/api/search', async (c) => {
     query: result.query,
     providerQuery: result.providerQuery,
     observedAt: result.observedAt,
+    receivedAt: result.receivedAt,
     expiresAt,
     candidates: result.candidates,
     candidateSetToken
@@ -213,6 +216,7 @@ app.post('/api/relay/rank', async (c) => {
       candidateSet: {
         provider: candidateSet.provider,
         observedAt: candidateSet.observedAt,
+        receivedAt: candidateSet.receivedAt,
         expiresAt: candidateSet.expiresAt
       }
     });
