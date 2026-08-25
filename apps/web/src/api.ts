@@ -55,6 +55,31 @@ export type RelayPlan = {
   };
 };
 
+export type CandidateTryOnTask = {
+  taskId: string;
+  bindingToken: string;
+  candidate: {
+    id: string;
+    title: string;
+    source: string;
+    imageUrl: string;
+  };
+  candidateSet: {
+    observedAt: string;
+    receivedAt: string;
+  };
+};
+
+export type CandidateTryOnStatus = {
+  status: string;
+  resultUrl?: string;
+  error?: unknown;
+  binding: {
+    candidateId: string;
+    sourceItemId: string;
+  };
+};
+
 const API_BASE = import.meta.env.VITE_API_BASE ?? '';
 
 async function json<T>(path: string, init?: RequestInit): Promise<T> {
@@ -133,4 +158,53 @@ export async function rankRelay(candidateSetToken: string, intent: string): Prom
     method: 'POST',
     body: JSON.stringify({candidateSetToken, intent})
   });
+}
+
+export async function createCandidateTryOn(
+  candidateSetToken: string,
+  candidateId: string,
+  personFileId: string,
+  garmentCategory?: SearchCandidate['garmentCategory']
+): Promise<CandidateTryOnTask> {
+  return json<CandidateTryOnTask>('/api/tryon/candidate', {
+    method: 'POST',
+    body: JSON.stringify({candidateSetToken, candidateId, personFileId, garmentCategory})
+  });
+}
+
+export async function getCandidateTryOn(taskId: string, bindingToken: string): Promise<CandidateTryOnStatus> {
+  return json<CandidateTryOnStatus>('/api/tryon/candidate/status', {
+    method: 'POST',
+    body: JSON.stringify({taskId, bindingToken})
+  });
+}
+
+export async function deleteCandidateTryOn(taskId: string, bindingToken: string) {
+  return json<{deleted:true; candidateId:string}>('/api/tryon/candidate/delete', {
+    method: 'POST',
+    body: JSON.stringify({taskId, bindingToken})
+  });
+}
+
+export async function pollCandidateTryOn(
+  taskId: string,
+  bindingToken: string,
+  expectedCandidateId: string,
+  expectedSourceItemId: string,
+  onStatus?: (status:string)=>void
+): Promise<string> {
+  for (let attempt = 0; attempt < 90; attempt++) {
+    const state = await getCandidateTryOn(taskId, bindingToken);
+    if (state.binding.candidateId !== expectedCandidateId || state.binding.sourceItemId !== expectedSourceItemId) {
+      throw new Error('CANDIDATE_VTO_BINDING_MISMATCH');
+    }
+    onStatus?.(state.status);
+    if (state.status === 'success') {
+      if (!state.resultUrl) throw new Error('RESULT_URL_MISSING');
+      return state.resultUrl;
+    }
+    if (state.status === 'error') throw new Error('VTO_FAILED');
+    await new Promise(resolve => setTimeout(resolve, 2000));
+  }
+  throw new Error('VTO_POLL_TIMEOUT');
 }
