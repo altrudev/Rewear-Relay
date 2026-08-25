@@ -5,6 +5,39 @@ export type UploadTicket = {
   headers: Record<string, string>;
 };
 
+export type RelayCandidate = {
+  id: string;
+  title: string;
+  price?: number;
+  currency?: string;
+  source: string;
+  observed_at: string;
+  garment_category?: string;
+};
+
+export type RelayRequest = {
+  source: {
+    id: string;
+    title: string;
+    price?: number;
+    currency?: string;
+    garment_category?: string;
+  };
+  candidates: RelayCandidate[];
+  intent?: string;
+};
+
+export type RelayPlan = {
+  source_item_id: string;
+  ranked: Array<{
+    candidate_id: string;
+    score: number;
+    reasons: string[];
+    cautions: string[];
+  }>;
+  summary: string;
+};
+
 const API_BASE = import.meta.env.VITE_API_BASE ?? '';
 
 async function json<T>(path: string, init?: RequestInit): Promise<T> {
@@ -63,4 +96,11 @@ export async function pollTryOn(taskId: string, onStatus?: (status:string)=>void
     await new Promise(resolve => setTimeout(resolve, 2000));
   }
   throw new Error('VTO_POLL_TIMEOUT');
+}
+
+export async function rankRelay(request: RelayRequest): Promise<RelayPlan> {
+  return json<RelayPlan>('/api/relay/rank', {
+    method: 'POST',
+    body: JSON.stringify(request)
+  });
 }
