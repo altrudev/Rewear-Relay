@@ -17,6 +17,10 @@ export const taskIdSchema = z.string().min(8).max(512);
 const moneySchema = z.number().finite().nonnegative().max(1_000_000).nullable().optional();
 const currencySchema = z.string().trim().min(3).max(8).nullable().optional();
 const garmentCategorySchema = z.string().trim().min(1).max(64).nullable().optional();
+const safeUrlSchema = z.string().url().refine((value) => {
+  const protocol = new URL(value).protocol;
+  return protocol === 'https:' || protocol === 'http:';
+}, 'URL must use http or https').optional();
 
 export const relaySourceSchema = z.object({
   id: z.string().trim().min(1).max(180),
@@ -64,4 +68,42 @@ export const relayPlanSchema = z.object({
     cautions: z.array(z.string().trim().min(1).max(500)).max(8)
   }).strict()).max(30),
   summary: z.string().trim().min(1).max(1500)
+}).strict();
+
+export const normalizedSearchCandidateSchema = z.object({
+  id: z.string().trim().min(1).max(220),
+  title: z.string().trim().min(1).max(500),
+  source: z.string().trim().min(1).max(180),
+  observedAt: z.string().datetime({offset: true}),
+  price: moneySchema,
+  priceText: z.string().trim().min(1).max(120).optional(),
+  currency: currencySchema,
+  productUrl: safeUrlSchema,
+  imageUrl: safeUrlSchema,
+  secondHandCondition: z.string().trim().min(1).max(120).optional(),
+  garmentCategory: z.enum(['auto', 'full_body', 'upper_body', 'lower_body', 'shoes', 'outerwear']).optional()
+}).strict();
+
+export const inventorySearchSchema = z.object({
+  source: relaySourceSchema,
+  query: z.string().trim().min(2).max(300),
+  maxResults: z.number().int().min(1).max(30).default(12),
+  strictSecondhand: z.boolean().default(true),
+  region: z.enum(['ca', 'us']).default('ca')
+}).strict();
+
+export const candidateSetPayloadSchema = z.object({
+  version: z.literal(1),
+  provider: z.enum(['fixture', 'serpapi']),
+  query: z.string().min(1).max(300),
+  providerQuery: z.string().min(1).max(500),
+  observedAt: z.string().datetime({offset: true}),
+  expiresAt: z.string().datetime({offset: true}),
+  source: relaySourceSchema,
+  inventory: z.array(normalizedSearchCandidateSchema).min(1).max(30)
+}).strict();
+
+export const relayRankInputSchema = z.object({
+  candidateSetToken: z.string().min(20).max(60_000),
+  intent: z.string().trim().min(1).max(800).nullable().optional()
 }).strict();
