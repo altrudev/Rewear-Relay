@@ -1,17 +1,36 @@
 import React, {useMemo, useState} from 'react';
 import { createRoot } from 'react-dom/client';
-import { createTryOn, deleteTryOn, pollTryOn, rankRelay, requestUploadTicket, uploadPreparedFile, type RelayPlan, type RelayRequest } from './api';
+import {
+  createTryOn,
+  deleteTryOn,
+  pollTryOn,
+  rankRelay,
+  requestUploadTicket,
+  searchInventory,
+  uploadPreparedFile,
+  type InventorySearchResponse,
+  type RelayPlan,
+  type RelaySource
+} from './api';
 import { prepareImage, type PreparedImage } from './image';
 import './styles.css';
 
 function Home() {
+  const [query,setQuery]=useState('');
+  function openSearch(event: React.FormEvent) {
+    event.preventDefault();
+    const next = query.trim();
+    if (!next) return;
+    location.href = `/relay-lab?q=${encodeURIComponent(next)}`;
+  }
+
   return <main className="shell">
     <header><div className="brand"><div className="mark">RR</div><span>Rewear Relay</span></div><nav className="topnav"><a href="/relay-lab">Relay lab</a><a href="/lab">Fitting room lab</a></nav></header>
     <section className="hero">
       <p className="eyebrow">SECONDHAND, ON YOU</p>
       <h1>Try it before<br/>someone else buys it.</h1>
       <p className="lede">Find a one-off piece. See that exact garment on you. Relay to a similar live option if it disappears.</p>
-      <label className="search"><span>⌕</span><input aria-label="Search secondhand fashion" placeholder="Vintage leather jacket under $80"/><button type="button" disabled>Search live</button></label>
+      <form className="search" onSubmit={openSearch}><span>⌕</span><input aria-label="Search secondhand fashion" placeholder="Vintage leather jacket under $80" value={query} onChange={event=>setQuery(event.target.value)}/><button type="submit" disabled={!query.trim()}>Search secondhand</button></form>
       <div className="actions"><button className="ghost" disabled>Paste listing</button><a className="ghost linkbutton" href="/lab">Upload item photo</a><a className="ghost linkbutton" href="/relay-lab">Test Relay reasoning</a></div>
       <p className="privacy">Your fitting-room photo is not stored by Rewear Relay.</p>
     </section>
@@ -107,34 +126,45 @@ function Lab() {
   </main>;
 }
 
-const relayFixture: RelayRequest = {
-  source: {
-    id: 'fixture-source-jacket',
-    title: 'Vintage brown leather jacket',
-    price: 80,
-    currency: 'USD',
-    garment_category: 'outerwear'
-  },
-  candidates: [
-    {id:'fixture-a',title:'Brown leather moto jacket',price:72,currency:'USD',source:'fixture-marketplace-a',observed_at:'2026-08-25T20:00:00Z',garment_category:'outerwear'},
-    {id:'fixture-b',title:'Distressed brown bomber jacket',price:88,currency:'USD',source:'fixture-marketplace-b',observed_at:'2026-08-25T20:01:00Z',garment_category:'outerwear'},
-    {id:'fixture-c',title:'Black cropped denim jacket',price:45,currency:'USD',source:'fixture-marketplace-c',observed_at:'2026-08-25T20:02:00Z',garment_category:'outerwear'}
-  ],
-  intent: 'Keep the brown leather look and stay under $90.'
+const relaySource: RelaySource = {
+  id: 'fixture-source-jacket',
+  title: 'Vintage brown leather jacket',
+  price: 80,
+  currency: 'CAD',
+  garment_category: 'outerwear'
 };
 
 function RelayLab() {
-  const [intent,setIntent]=useState(relayFixture.intent ?? '');
+  const urlQuery = new URLSearchParams(location.search).get('q')?.trim() || 'brown leather jacket';
+  const [query,setQuery]=useState(urlQuery);
+  const [intent,setIntent]=useState('Keep the brown leather look and stay under the source-item price where evidence allows.');
+  const [inventory,setInventory]=useState<InventorySearchResponse|null>(null);
   const [plan,setPlan]=useState<RelayPlan|null>(null);
   const [status,setStatus]=useState('idle');
   const [error,setError]=useState('');
 
+  async function findCandidates() {
+    setStatus('searching normalized inventory');
+    setError('');
+    setPlan(null);
+    setInventory(null);
+    try {
+      const next = await searchInventory(relaySource, query);
+      setInventory(next);
+      setStatus(next.candidates.length > 0 ? 'search ready' : 'no strict secondhand results');
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'SEARCH_FAILED');
+      setStatus('error');
+    }
+  }
+
   async function runRelay() {
-    setStatus('ranking with Rig');
+    if (!inventory?.candidateSetToken) return;
+    setStatus('ranking signed candidate set with Rig');
     setError('');
     setPlan(null);
     try {
-      const next = await rankRelay({...relayFixture, intent});
+      const next = await rankRelay(inventory.candidateSetToken, intent);
       setPlan(next);
       setStatus('done');
     } catch (cause) {
@@ -146,18 +176,41 @@ function RelayLab() {
   return <main className="lab shell">
     <header><div className="brand"><div className="mark">RR</div><span>Rig Relay Lab</span></div><a href="/">Back</a></header>
     <section className="relaybody">
-      <div className="relayintro"><p className="eyebrow">RIG 0.42 · GOVERNED RANKING</p><h1>Relay the look,<br/>not the listing.</h1><p className="lede">This lab uses fixed fixture candidates so the reasoning boundary can be tested independently of live search. Rig may rank only these supplied IDs; Rewear rejects anything else.</p></div>
-      <section className="sourcecard"><span className="eyebrow">SOURCE ITEM</span><h2>{relayFixture.source.title}</h2><div className="meta"><span>${relayFixture.source.price}</span><span>{relayFixture.source.garment_category}</span></div></section>
-      <label className="intentbox"><span>Shopper intent</span><input value={intent} maxLength={600} onChange={e=>setIntent(e.target.value)} /></label>
-      <div className="candidategrid">
-        {relayFixture.candidates.map(candidate=><article className="candidate" key={candidate.id}><div><span className="candidateid">{candidate.id}</span><h3>{candidate.title}</h3></div><div className="meta"><span>${candidate.price}</span><span>{candidate.source}</span></div><small>Observed {new Date(candidate.observed_at).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</small></article>)}
+      <div className="relayintro"><p className="eyebrow">SEARCH RECEIPT → RIG 0.42 → GOVERNED RANKING</p><h1>Relay the look,<br/>not the listing.</h1><p className="lede">Search is normalized at the Edge. Rewear signs the observed candidate set before the browser receives it; Rig ranking later accepts only that signed set plus your intent.</p></div>
+      <section className="sourcecard"><span className="eyebrow">SOURCE ITEM</span><h2>{relaySource.title}</h2><div className="meta"><span>${relaySource.price} {relaySource.currency}</span><span>{relaySource.garment_category}</span></div></section>
+
+      <div className="searchpanel">
+        <label className="intentbox"><span>Alternative search</span><input value={query} maxLength={300} onChange={e=>setQuery(e.target.value)} /></label>
+        <button className="run" disabled={!query.trim()||status==='searching normalized inventory'} onClick={findCandidates}>{status==='searching normalized inventory' ? status : 'Find strict secondhand candidates'}</button>
       </div>
-      <button className="run" disabled={status==='ranking with Rig'} onClick={runRelay}>{status==='ranking with Rig' ? status : 'Rank supplied candidates with Rig'}</button>
-      <p className="fineprint">Fixture inventory only. This screen does not claim that any item is currently for sale.</p>
-      {error && <div className="notice error"><strong>Rig path stopped</strong><span>{error}</span></div>}
-      {plan && <section className="relayplan"><div className="plansummary"><p className="eyebrow">VALIDATED RELAY PLAN</p><h2>{plan.summary}</h2><p>Source binding: <code>{plan.source_item_id}</code></p></div>{plan.ranked.map(entry=>{const candidate=relayFixture.candidates.find(item=>item.id===entry.candidate_id);return <article className="ranked" key={entry.candidate_id}><div className="score">{entry.score}<small>/100</small></div><div><span className="candidateid">{entry.candidate_id}</span><h3>{candidate?.title ?? 'Validated candidate'}</h3><ul>{entry.reasons.map(reason=><li key={reason}>{reason}</li>)}</ul>{entry.cautions.length>0&&<div className="cautions">{entry.cautions.map(caution=><span key={caution}>{caution}</span>)}</div>}</div></article>})}</section>}
+
+      {inventory && <section className="inventoryreceipt">
+        <div><span className="eyebrow">SIGNED CANDIDATE SET</span><h2>{inventory.candidates.length} candidates · {inventory.provider}</h2></div>
+        <div className="receiptmeta"><span>Observed {new Date(inventory.observedAt).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</span><span>Expires {new Date(inventory.expiresAt).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</span></div>
+        {inventory.providerQuery !== inventory.query && <p className="fineprint">Provider query expanded for secondhand recall: <code>{inventory.providerQuery}</code></p>}
+      </section>}
+
+      {inventory && inventory.candidates.length > 0 && <div className="candidategrid">
+        {inventory.candidates.map(candidate=><article className="candidate" key={candidate.id}>
+          {candidate.imageUrl && <img className="candidateimg" src={candidate.imageUrl} alt="" loading="lazy" referrerPolicy="no-referrer"/>}
+          <div><span className="candidateid">{candidate.id}</span><h3>{candidate.title}</h3></div>
+          <div className="meta"><span>{candidate.priceText ?? (candidate.price != null ? String(candidate.price) : 'Price unavailable')}</span><span>{candidate.source}</span></div>
+          <small>{candidate.secondHandCondition ? `Condition evidence: ${candidate.secondHandCondition}` : 'Condition not evidenced'} · observed {new Date(candidate.observedAt).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</small>
+          {candidate.productUrl && <a className="candidateout" href={candidate.productUrl} target="_blank" rel="noreferrer">Open shopping result ↗</a>}
+        </article>)}
+      </div>}
+
+      {inventory?.candidateSetToken && <>
+        <label className="intentbox"><span>Shopper intent</span><input value={intent} maxLength={800} onChange={e=>setIntent(e.target.value)} /></label>
+        <button className="run" disabled={!intent.trim()||status==='ranking signed candidate set with Rig'} onClick={runRelay}>{status==='ranking signed candidate set with Rig' ? status : 'Rank signed candidates with Rig'}</button>
+      </>}
+
+      <p className="fineprint">Fixture mode is the zero-cost default. Live SerpApi search occurs only when the server is explicitly configured for it. Search observation does not guarantee that an item remains available.</p>
+      {error && <div className="notice error"><strong>Relay path stopped</strong><span>{error}</span></div>}
+      {inventory && inventory.candidates.length === 0 && <div className="notice"><strong>No evidenced secondhand candidates</strong><span>Rewear did not relax the condition gate or silently mix in ordinary retail results.</span></div>}
+      {plan && <section className="relayplan"><div className="plansummary"><p className="eyebrow">VALIDATED RELAY PLAN</p><h2>{plan.summary}</h2><p>Source binding: <code>{plan.source_item_id}</code></p>{plan.candidateSet&&<p>Evidence: {plan.candidateSet.provider} · observed {new Date(plan.candidateSet.observedAt).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</p>}</div>{plan.ranked.map(entry=>{const candidate=inventory?.candidates.find(item=>item.id===entry.candidate_id);return <article className="ranked" key={entry.candidate_id}><div className="score">{entry.score}<small>/100</small></div><div><span className="candidateid">{entry.candidate_id}</span><h3>{candidate?.title ?? 'Validated candidate'}</h3><ul>{entry.reasons.map(reason=><li key={reason}>{reason}</li>)}</ul>{entry.cautions.length>0&&<div className="cautions">{entry.cautions.map(caution=><span key={caution}>{caution}</span>)}</div>}</div></article>})}</section>}
     </section>
-    <footer><span>Candidate set → Rig typed plan → identity gate → user decision.</span><span>Altru.dev · 2026</span></footer>
+    <footer><span>Search → signed evidence → Rig typed plan → identity gate → user decision.</span><span>Altru.dev · 2026</span></footer>
   </main>;
 }
 
