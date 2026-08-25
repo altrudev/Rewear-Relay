@@ -8,6 +8,9 @@
 - [x] Direct-upload ticket route scaffolded
 - [x] cloth-v4 task create/poll scaffolded
 - [x] PWA manifest/service worker shell
+- [x] Browser EXIF/GPS stripping by decode + re-encode
+- [x] Browser direct-to-provider upload flow
+- [x] Vertical-slice `/lab` route with polling/result rendering
 - [x] Binding mismatch test
 - [x] Secret-not-returned provider test
 
@@ -23,9 +26,8 @@
 
 ## Gate 2 — user-facing fitting room
 
-- [ ] Browser-side EXIF-stripping re-encode
 - [ ] Camera/photo guidance
-- [ ] Task progress/failure UX
+- [ ] Stronger task progress/failure UX
 - [ ] Result/item binding enforcement in UI
 - [ ] Before/after comparator
 - [ ] Evidence receipt
