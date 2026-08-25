@@ -18,8 +18,12 @@ const moneySchema = z.number().finite().nonnegative().max(1_000_000).nullable().
 const currencySchema = z.string().trim().min(3).max(8).nullable().optional();
 const garmentCategorySchema = z.string().trim().min(1).max(64).nullable().optional();
 const safeUrlSchema = z.string().url().refine((value) => {
-  const protocol = new URL(value).protocol;
-  return protocol === 'https:' || protocol === 'http:';
+  try {
+    const protocol = new URL(value).protocol;
+    return protocol === 'https:' || protocol === 'http:';
+  } catch {
+    return false;
+  }
 }, 'URL must use http or https').optional();
 
 export const relaySourceSchema = z.object({
