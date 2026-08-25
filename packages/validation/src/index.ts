@@ -35,7 +35,7 @@ export const relaySourceSchema = z.object({
 }).strict();
 
 export const relayCandidateSchema = z.object({
-  id: z.string().trim().min(1).max(180),
+  id: z.string().trim().min(1).max(220),
   title: z.string().trim().min(1).max(500),
   price: moneySchema,
   currency: currencySchema,
@@ -66,7 +66,7 @@ export const relayRequestSchema = z.object({
 export const relayPlanSchema = z.object({
   source_item_id: z.string().trim().min(1).max(180),
   ranked: z.array(z.object({
-    candidate_id: z.string().trim().min(1).max(180),
+    candidate_id: z.string().trim().min(1).max(220),
     score: z.number().int().min(0).max(100),
     reasons: z.array(z.string().trim().min(1).max(500)).max(8),
     cautions: z.array(z.string().trim().min(1).max(500)).max(8)
