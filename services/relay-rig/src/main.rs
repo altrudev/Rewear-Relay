@@ -17,7 +17,7 @@ use tracing::{error, info};
 
 #[derive(Clone)]
 struct AppState {
-    model: String,
+    model: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -59,7 +59,7 @@ async fn main() -> anyhow::Result<()> {
         .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
         .init();
 
-    let model = env::var("RIG_MODEL").unwrap_or_else(|_| "gpt-5.5".to_string());
+    let model = env::var("RIG_MODEL").ok().filter(|value| !value.trim().is_empty());
     let bind = env::var("RELAY_RIG_BIND").unwrap_or_else(|_| "127.0.0.1:8788".to_string());
     let state = Arc::new(AppState { model });
 
@@ -79,7 +79,7 @@ async fn health(State(state): State<Arc<AppState>>) -> Json<HealthResponse> {
         ok: true,
         runtime: "rig",
         rig_version: "0.42.0",
-        model_configured: !state.model.trim().is_empty() && env::var("OPENAI_API_KEY").is_ok(),
+        model_configured: state.model.is_some() && env::var("OPENAI_API_KEY").is_ok(),
     })
 }
 
@@ -92,13 +92,15 @@ async fn rank(
         ApiError::bad_request()
     })?;
 
+    let model = state.model.as_deref().ok_or_else(ApiError::unavailable)?;
+
     let client = openai::Client::from_env().map_err(|cause| {
         error!(error = %cause, "Rig provider configuration unavailable");
         ApiError::unavailable()
     })?;
 
     let agent = client
-        .agent(state.model.as_str())
+        .agent(model)
         .preamble(
             "You are Rewear Relay's bounded recommendation reasoner. You may rank only supplied candidates. \
              You do not browse, purchase, invoke virtual try-on, change source identity, or claim physical fit. \
