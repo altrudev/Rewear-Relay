@@ -102,6 +102,7 @@ export const candidateSetPayloadSchema = z.object({
   query: z.string().min(1).max(300),
   providerQuery: z.string().min(1).max(500),
   observedAt: z.string().datetime({offset: true}),
+  receivedAt: z.string().datetime({offset: true}),
   expiresAt: z.string().datetime({offset: true}),
   source: relaySourceSchema,
   inventory: z.array(normalizedSearchCandidateSchema).min(1).max(30)
