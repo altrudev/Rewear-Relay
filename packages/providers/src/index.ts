@@ -17,7 +17,8 @@ export interface UploadTicket {
 
 export interface TryOnRequest {
   personFileId: string;
-  garmentFileId: string;
+  garmentFileId?: string;
+  garmentFileUrl?: string;
   garmentCategory?: GarmentCategory;
 }
 
@@ -67,13 +68,20 @@ export class PerfectCorpProvider implements VirtualTryOnProvider {
   }
 
   async createTryOn(input: TryOnRequest): Promise<{ taskId: string }> {
+    const hasFileId = Boolean(input.garmentFileId);
+    const hasFileUrl = Boolean(input.garmentFileUrl);
+    if (hasFileId === hasFileUrl) throw new Error('PERFECT_REFERENCE_INVALID');
+
+    const payload: Record<string, unknown> = {
+      src_file_id: input.personFileId,
+      garment_category: input.garmentCategory ?? 'auto'
+    };
+    if (input.garmentFileId) payload.ref_file_id = input.garmentFileId;
+    if (input.garmentFileUrl) payload.ref_file_url = input.garmentFileUrl;
+
     const body = await this.request('/s2s/v2.0/task/cloth-v4', {
       method: 'POST',
-      body: JSON.stringify({
-        src_file_id: input.personFileId,
-        ref_file_id: input.garmentFileId,
-        garment_category: input.garmentCategory ?? 'auto'
-      })
+      body: JSON.stringify(payload)
     });
     if (!body?.data?.task_id) throw new Error('PERFECT_TASK_ID_MISSING');
     return { taskId: body.data.task_id };
