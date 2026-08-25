@@ -1,0 +1,7 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "rewear-relay-edge",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-08-25",
+  "vars": {"PERFECT_API_BASE": "https://yce-api-01.makeupar.com"}
+}

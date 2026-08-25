@@ -1,0 +1,7 @@
+{
+  "name": "@rewear/providers",
+  "version": "0.1.0",
+  "type": "module",
+  "dependencies": {"@rewear/domain": "0.1.0"},
+  "exports": "./src/index.ts"
+}

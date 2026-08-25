@@ -1,0 +1,15 @@
+{
+  "name": "rewear-relay",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Private virtual fitting room for secondhand fashion.",
+  "workspaces": ["apps/*", "packages/*"],
+  "scripts": {
+    "dev:web": "npm run dev -w @rewear/web",
+    "dev:edge": "npm run dev -w @rewear/edge",
+    "build": "npm run build --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present"
+  },
+  "engines": {"node": ">=20"}
+}
