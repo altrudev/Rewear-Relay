@@ -5,26 +5,36 @@ export type UploadTicket = {
   headers: Record<string, string>;
 };
 
-export type RelayCandidate = {
+export type RelaySource = {
   id: string;
   title: string;
   price?: number;
   currency?: string;
-  source: string;
-  observed_at: string;
   garment_category?: string;
 };
 
-export type RelayRequest = {
-  source: {
-    id: string;
-    title: string;
-    price?: number;
-    currency?: string;
-    garment_category?: string;
-  };
-  candidates: RelayCandidate[];
-  intent?: string;
+export type SearchCandidate = {
+  id: string;
+  title: string;
+  source: string;
+  observedAt: string;
+  price?: number;
+  priceText?: string;
+  currency?: string;
+  productUrl?: string;
+  imageUrl?: string;
+  secondHandCondition?: string;
+  garmentCategory?: 'auto' | 'full_body' | 'upper_body' | 'lower_body' | 'shoes' | 'outerwear';
+};
+
+export type InventorySearchResponse = {
+  provider: 'fixture' | 'serpapi';
+  query: string;
+  providerQuery: string;
+  observedAt: string;
+  expiresAt: string;
+  candidates: SearchCandidate[];
+  candidateSetToken: string | null;
 };
 
 export type RelayPlan = {
@@ -36,6 +46,11 @@ export type RelayPlan = {
     cautions: string[];
   }>;
   summary: string;
+  candidateSet?: {
+    provider: 'fixture' | 'serpapi';
+    observedAt: string;
+    expiresAt: string;
+  };
 };
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? '';
@@ -98,9 +113,22 @@ export async function pollTryOn(taskId: string, onStatus?: (status:string)=>void
   throw new Error('VTO_POLL_TIMEOUT');
 }
 
-export async function rankRelay(request: RelayRequest): Promise<RelayPlan> {
+export async function searchInventory(source: RelaySource, query: string): Promise<InventorySearchResponse> {
+  return json<InventorySearchResponse>('/api/search', {
+    method: 'POST',
+    body: JSON.stringify({
+      source,
+      query,
+      maxResults: 12,
+      strictSecondhand: true,
+      region: 'ca'
+    })
+  });
+}
+
+export async function rankRelay(candidateSetToken: string, intent: string): Promise<RelayPlan> {
   return json<RelayPlan>('/api/relay/rank', {
     method: 'POST',
-    body: JSON.stringify(request)
+    body: JSON.stringify({candidateSetToken, intent})
   });
 }
