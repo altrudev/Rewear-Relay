@@ -173,7 +173,7 @@ function RelayLab() {
     setVtoResult('');
     setVtoError('');
     setOrphanUploadRisk(false);
-    if (!vtoTask) setVtoStatus('idle');
+    setVtoStatus('idle');
   }
 
   async function findCandidates() {
@@ -192,6 +192,19 @@ function RelayLab() {
     }
   }
 
+  async function startNewSearch() {
+    setError('');
+    try {
+      await resetCandidateVto();
+      setInventory(null);
+      setPlan(null);
+      setStatus('idle');
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'VTO_CLEANUP_FAILED');
+      setStatus('error');
+    }
+  }
+
   async function runRelay() {
     if (!inventory?.candidateSetToken) return;
     setStatus('ranking signed candidate set with Rig');
@@ -204,6 +217,18 @@ function RelayLab() {
       setStatus('done');
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'RELAY_RANK_FAILED');
+      setStatus('error');
+    }
+  }
+
+  async function changeIntent() {
+    setError('');
+    try {
+      await resetCandidateVto();
+      setPlan(null);
+      setStatus('search ready');
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'VTO_CLEANUP_FAILED');
       setStatus('error');
     }
   }
@@ -226,9 +251,14 @@ function RelayLab() {
     setVtoError('');
     try {
       const prepared = await prepareImage(file, 'person');
+      if (vtoTask) await cleanupCandidateTask();
+      setVtoResult('');
+      setOrphanUploadRisk(false);
       setPerson(prepared);
+      setVtoStatus('idle');
     } catch (cause) {
       setVtoError(cause instanceof Error ? cause.message : 'IMAGE_PREPARATION_FAILED');
+      setVtoStatus('error');
     }
   }
 
@@ -308,8 +338,8 @@ function RelayLab() {
       <section className="sourcecard"><span className="eyebrow">SOURCE ITEM</span><h2>{relaySource.title}</h2><div className="meta"><span>${relaySource.price} {relaySource.currency}</span><span>{relaySource.garment_category}</span></div></section>
 
       <div className="searchpanel">
-        <label className="intentbox"><span>Alternative search</span><input value={query} maxLength={300} onChange={e=>setQuery(e.target.value)} /></label>
-        <button className="run" disabled={!query.trim()||status==='searching normalized inventory'} onClick={findCandidates}>{status==='searching normalized inventory' ? status : 'Find strict secondhand candidates'}</button>
+        <label className="intentbox"><span>Alternative search</span><input value={query} maxLength={300} disabled={Boolean(inventory)} onChange={e=>setQuery(e.target.value)} /></label>
+        {inventory ? <button className="ghost" onClick={startNewSearch}>Start a new search</button> : <button className="run" disabled={!query.trim()||status==='searching normalized inventory'} onClick={findCandidates}>{status==='searching normalized inventory' ? status : 'Find strict secondhand candidates'}</button>}
       </div>
 
       {inventory && <section className="inventoryreceipt">
@@ -328,7 +358,7 @@ function RelayLab() {
         </article>)}
       </div>}
 
-      {inventory?.candidateSetToken && <>
+      {inventory?.candidateSetToken && !plan && <>
         <label className="intentbox"><span>Shopper intent</span><input value={intent} maxLength={800} onChange={e=>setIntent(e.target.value)} /></label>
         <button className="run" disabled={!intent.trim()||status==='ranking signed candidate set with Rig'} onClick={runRelay}>{status==='ranking signed candidate set with Rig' ? status : 'Rank signed candidates with Rig'}</button>
       </>}
@@ -338,7 +368,7 @@ function RelayLab() {
       {inventory && inventory.candidates.length === 0 && <div className="notice"><strong>No evidenced secondhand candidates</strong><span>Rewear did not relax the condition gate or silently mix in ordinary retail results.</span></div>}
 
       {plan && <section className="relayplan">
-        <div className="plansummary"><p className="eyebrow">VALIDATED RELAY PLAN</p><h2>{plan.summary}</h2><p>Source binding: <code>{plan.source_item_id}</code></p>{plan.candidateSet&&<p>Evidence: {plan.candidateSet.provider} · observed {new Date(plan.candidateSet.observedAt).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</p>}</div>
+        <div className="plansummary"><p className="eyebrow">VALIDATED RELAY PLAN</p><h2>{plan.summary}</h2><p>Source binding: <code>{plan.source_item_id}</code></p>{plan.candidateSet&&<p>Evidence: {plan.candidateSet.provider} · observed {new Date(plan.candidateSet.observedAt).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</p>}<button className="ghost" onClick={changeIntent}>Change intent and re-rank</button></div>
         {plan.ranked.map(entry=>{const candidate=inventory?.candidates.find(item=>item.id===entry.candidate_id);const canTry=Boolean(candidate?.imageUrl);return <article className={`ranked ${selectedCandidateId===entry.candidate_id?'selected':''}`} key={entry.candidate_id}><div className="score">{entry.score}<small>/100</small></div><div><span className="candidateid">{entry.candidate_id}</span><h3>{candidate?.title ?? 'Validated candidate'}</h3><ul>{entry.reasons.map(reason=><li key={reason}>{reason}</li>)}</ul>{entry.cautions.length>0&&<div className="cautions">{entry.cautions.map(caution=><span key={caution}>{caution}</span>)}</div>}<button className="ghost selectcandidate" disabled={!candidate||!canTry||vtoBusy} onClick={()=>candidate&&selectCandidate(candidate)}>{canTry ? (selectedCandidateId===entry.candidate_id ? 'Selected for try-on' : 'Select for try-on') : 'No VTO image evidence'}</button></div></article>})}
       </section>}
 
