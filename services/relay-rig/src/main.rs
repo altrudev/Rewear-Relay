@@ -6,11 +6,7 @@ use axum::{
     Json, Router,
 };
 use rewear_relay_rig::{build_prompt, validate_plan, RelayPlan, RelayRequest};
-use rig::{
-    client::{CompletionClient, ProviderClient},
-    completion::TypedPrompt,
-    providers::openai,
-};
+use rig::{prelude::*, providers::openai};
 use serde::Serialize;
 use std::{env, sync::Arc};
 use tracing::{error, info};
