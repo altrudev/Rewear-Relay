@@ -41,8 +41,8 @@ const FIXTURE_CANDIDATES: Omit<NormalizedSearchCandidate, 'observedAt'>[] = [
     title: 'Brown leather moto jacket',
     source: 'fixture-marketplace-a',
     price: 72,
-    priceText: '$72',
-    currency: 'USD',
+    priceText: '$72 CAD',
+    currency: 'CAD',
     secondHandCondition: 'used',
     garmentCategory: 'outerwear'
   },
@@ -51,8 +51,8 @@ const FIXTURE_CANDIDATES: Omit<NormalizedSearchCandidate, 'observedAt'>[] = [
     title: 'Distressed brown bomber jacket',
     source: 'fixture-marketplace-b',
     price: 88,
-    priceText: '$88',
-    currency: 'USD',
+    priceText: '$88 CAD',
+    currency: 'CAD',
     secondHandCondition: 'used',
     garmentCategory: 'outerwear'
   },
@@ -61,8 +61,8 @@ const FIXTURE_CANDIDATES: Omit<NormalizedSearchCandidate, 'observedAt'>[] = [
     title: 'Black cropped denim jacket',
     source: 'fixture-marketplace-c',
     price: 45,
-    priceText: '$45',
-    currency: 'USD',
+    priceText: '$45 CAD',
+    currency: 'CAD',
     secondHandCondition: 'used',
     garmentCategory: 'outerwear'
   }
