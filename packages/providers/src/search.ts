@@ -75,7 +75,7 @@ export class FixtureSearchProvider implements SearchProvider {
   async search(input: SearchRequest): Promise<SearchResponse> {
     const receivedAt = this.now().toISOString();
     const observedAt = receivedAt;
-    const maxResults = Math.max(1, Math.min(input.maxResults ?? 12, 30));
+    const maxResults = Math.max(1, Math.min(input.maxResults ?? 12, 12));
     return {
       provider: 'fixture',
       query: input.query,
@@ -126,7 +126,8 @@ function safeHttpUrl(value: unknown): string | undefined {
     if (url.protocol !== 'https:' && url.protocol !== 'http:') return undefined;
     url.username = '';
     url.password = '';
-    return url.toString();
+    const normalized = url.toString();
+    return normalized.length <= 1024 ? normalized : undefined;
   } catch {
     return undefined;
   }
@@ -154,7 +155,7 @@ export class SerpApiSearchProvider implements SearchProvider {
     const strictSecondhand = input.strictSecondhand ?? true;
     const providerQuery = strictSecondhand ? `${query} second hand used pre-owned` : query;
     const region = input.region ?? 'ca';
-    const maxResults = Math.max(1, Math.min(input.maxResults ?? 12, 30));
+    const maxResults = Math.max(1, Math.min(input.maxResults ?? 12, 12));
 
     const url = new URL('https://serpapi.com/search.json');
     url.searchParams.set('engine', 'google_shopping');
