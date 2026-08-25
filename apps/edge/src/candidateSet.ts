@@ -38,15 +38,15 @@ export async function verifyCandidateSet(secret: string, token: string): Promise
   const parts = token.split('.');
   if (parts.length !== 3 || parts[0] !== 'v1') throw new Error('CANDIDATE_SET_TOKEN_INVALID');
 
-  const payloadBytes = base64UrlToBytes(parts[1]);
-  const signature = base64UrlToBytes(parts[2]);
-  const key = await importKey(secret);
-  const valid = await crypto.subtle.verify('HMAC', key, signature, payloadBytes);
-  if (!valid) throw new Error('CANDIDATE_SET_TOKEN_INVALID');
-
   try {
+    const payloadBytes = base64UrlToBytes(parts[1]);
+    const signature = base64UrlToBytes(parts[2]);
+    const key = await importKey(secret);
+    const valid = await crypto.subtle.verify('HMAC', key, signature, payloadBytes);
+    if (!valid) throw new Error('CANDIDATE_SET_TOKEN_INVALID');
     return JSON.parse(decoder.decode(payloadBytes));
-  } catch {
+  } catch (cause) {
+    if (cause instanceof Error && cause.message === 'SEARCH_SIGNING_KEY_WEAK') throw cause;
     throw new Error('CANDIDATE_SET_TOKEN_INVALID');
   }
 }
