@@ -18,6 +18,8 @@ Primary product loop:
 - Rig `0.42.0` is the bounded reasoning runtime for Relay candidate ranking and recommendation planning.
 - Rig receives only normalized candidate evidence and cannot browse arbitrary listing URLs, purchase items, invoke VTO, or claim physical fit.
 - Every Rig `RelayPlan` is validated after model execution; unknown candidates or source/predecessor mismatches fail closed.
+- Marketplace titles and shopper text are treated as untrusted data, not instructions.
+- Rig provider/model selection is explicit. Local Ollama and optional OpenAI modes are supported; no paid provider is silently selected.
 - User images are uploaded directly from the browser to Perfect Corp presigned upload targets; Rewear does not proxy or persist raw photos.
 - Perfect Corp, search and model-provider credentials remain server-side only.
 - Completed Perfect tasks/resources are explicitly deleted when a fitting-room session is deleted.
@@ -36,6 +38,13 @@ Primary product loop:
 - `packages/receipts` — provenance/preview receipts
 - `docs` — architecture, Rig runtime, privacy, threat model, DDC and hackathon plan
 
+## Development labs
+
+- `/lab` — Perfect Corp vertical-slice lab: sanitize images → direct upload → `cloth-v4` → poll → result → explicit cleanup.
+- `/relay-lab` — Rig ranking lab: fixed candidate fixture → Edge → Rig → typed `RelayPlan` → independent validation → rendered recommendation.
+
+The Relay lab uses fixture inventory intentionally; it makes no claim that fixture products are live listings.
+
 ## Rig boundary
 
 The Relay reasoning path is intentionally separated from commerce and transformation authority:
@@ -44,11 +53,36 @@ The Relay reasoning path is intentionally separated from commerce and transforma
 
 Only after the user selects a candidate may the separate Perfect Corp visualization path run.
 
+Rig can run through local Ollama for a no-provider-fee development path, or through an explicitly configured hosted provider. Deterministic tests use Rig's scripted `MockCompletionModel`, so typed-output and authority gates can be tested without API keys or token spend.
+
 See `docs/RIG-RUNTIME.md` for the trust and execution model.
 
 ## Current status
 
-Perfect Corp vertical-slice scaffolding and the governed Rig recommendation runtime are present. Live provider credentials and runtime execution remain environment configuration, never repository content.
+Implemented:
+
+- mobile PWA shell;
+- browser-side image re-encoding and metadata removal;
+- Perfect Corp upload/task/poll/delete integration path;
+- governed Edge API boundary;
+- Rig `0.42.0` Rust runtime;
+- explicit Ollama/OpenAI provider selection;
+- typed Relay request/plan contracts;
+- source/predecessor and candidate-closure validation;
+- prompt-injection containment for marketplace/user strings;
+- zero-cost Rig mock-model tests;
+- fitting-room and Relay development labs;
+- DDC assessment of both transformation and recommendation transitions.
+
+Still requires runtime evidence:
+
+- Rust `cargo fmt`, compile, clippy and test pass on an execution host;
+- measured Ollama model quality and resource use;
+- Edge → Rig HTTPS connectivity outside local development;
+- a real Perfect Corp `cloth-v4` transaction;
+- real search inventory and end-to-end candidate selection → VTO binding.
+
+No credentials belong in this repository.
 
 ## Ownership
 
