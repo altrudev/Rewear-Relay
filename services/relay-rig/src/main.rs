@@ -6,13 +6,19 @@ use axum::{
     Json, Router,
 };
 use rewear_relay_rig::{build_prompt, validate_plan, RelayPlan, RelayRequest};
-use rig::{prelude::*, providers::openai};
+use rig::{
+    agent::AgentBuilder,
+    client::{CompletionClient, Nothing, ProviderClient},
+    completion::{CompletionModel, TypedPrompt},
+    providers::{ollama, openai},
+};
 use serde::Serialize;
 use std::{env, sync::Arc};
 use tracing::{error, info};
 
 #[derive(Clone)]
 struct AppState {
+    provider: Option<String>,
     model: Option<String>,
 }
 
@@ -21,6 +27,7 @@ struct HealthResponse {
     ok: bool,
     runtime: &'static str,
     rig_version: &'static str,
+    provider: Option<String>,
     model_configured: bool,
 }
 
@@ -55,9 +62,10 @@ async fn main() -> anyhow::Result<()> {
         .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
         .init();
 
+    let provider = env::var("RIG_PROVIDER").ok().filter(|value| !value.trim().is_empty());
     let model = env::var("RIG_MODEL").ok().filter(|value| !value.trim().is_empty());
     let bind = env::var("RELAY_RIG_BIND").unwrap_or_else(|_| "127.0.0.1:8788".to_string());
-    let state = Arc::new(AppState { model });
+    let state = Arc::new(AppState { provider, model });
 
     let app = Router::new()
         .route("/health", get(health))
@@ -71,11 +79,18 @@ async fn main() -> anyhow::Result<()> {
 }
 
 async fn health(State(state): State<Arc<AppState>>) -> Json<HealthResponse> {
+    let provider_ready = match state.provider.as_deref() {
+        Some("ollama") => true,
+        Some("openai") => env::var("OPENAI_API_KEY").is_ok(),
+        _ => false,
+    };
+
     Json(HealthResponse {
         ok: true,
         runtime: "rig",
         rig_version: "0.42.0",
-        model_configured: state.model.is_some() && env::var("OPENAI_API_KEY").is_ok(),
+        provider: state.provider.clone(),
+        model_configured: state.model.is_some() && provider_ready,
     })
 }
 
@@ -88,15 +103,42 @@ async fn rank(
         ApiError::bad_request()
     })?;
 
-    let model = state.model.as_deref().ok_or_else(ApiError::unavailable)?;
+    let provider = state.provider.as_deref().ok_or_else(ApiError::unavailable)?;
+    let model_id = state.model.as_deref().ok_or_else(ApiError::unavailable)?;
 
-    let client = openai::Client::from_env().map_err(|cause| {
-        error!(error = %cause, "Rig provider configuration unavailable");
-        ApiError::unavailable()
-    })?;
+    let plan = match provider {
+        "openai" => {
+            let client = openai::Client::from_env().map_err(|cause| {
+                error!(error = %cause, "Rig OpenAI provider configuration unavailable");
+                ApiError::unavailable()
+            })?;
+            run_agent(client.completion_model(model_id), &request, prompt).await?
+        }
+        "ollama" => {
+            let client = ollama::Client::new(Nothing).map_err(|cause| {
+                error!(error = %cause, "Rig Ollama provider configuration unavailable");
+                ApiError::unavailable()
+            })?;
+            run_agent(client.completion_model(model_id), &request, prompt).await?
+        }
+        _ => {
+            error!(provider, "unsupported Rig provider");
+            return Err(ApiError::unavailable());
+        }
+    };
 
-    let agent = client
-        .agent(model)
+    Ok(Json(plan))
+}
+
+async fn run_agent<M>(
+    model: M,
+    request: &RelayRequest,
+    prompt: String,
+) -> Result<RelayPlan, ApiError>
+where
+    M: CompletionModel + 'static,
+{
+    let agent = AgentBuilder::new(model)
         .preamble(
             "You are Rewear Relay's bounded recommendation reasoner. You may rank only supplied candidates. \
              You do not browse, purchase, invoke virtual try-on, change source identity, or claim physical fit. \
@@ -109,10 +151,10 @@ async fn rank(
         ApiError::unavailable()
     })?;
 
-    validate_plan(&request, &plan).map_err(|cause| {
+    validate_plan(request, &plan).map_err(|cause| {
         error!(error = %cause, "Rig plan failed post-model contract validation");
         ApiError::invalid_plan()
     })?;
 
-    Ok(Json(plan))
+    Ok(plan)
 }
