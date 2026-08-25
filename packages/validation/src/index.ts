@@ -17,7 +17,7 @@ export const taskIdSchema = z.string().min(8).max(512);
 const moneySchema = z.number().finite().nonnegative().max(1_000_000).nullable().optional();
 const currencySchema = z.string().trim().min(3).max(8).nullable().optional();
 const garmentCategorySchema = z.string().trim().min(1).max(64).nullable().optional();
-const safeUrlSchema = z.string().url().refine((value) => {
+const safeUrlSchema = z.string().max(1024).url().refine((value) => {
   try {
     const protocol = new URL(value).protocol;
     return protocol === 'https:' || protocol === 'http:';
@@ -91,7 +91,7 @@ export const normalizedSearchCandidateSchema = z.object({
 export const inventorySearchSchema = z.object({
   source: relaySourceSchema,
   query: z.string().trim().min(2).max(300),
-  maxResults: z.number().int().min(1).max(30).default(12),
+  maxResults: z.number().int().min(1).max(12).default(12),
   strictSecondhand: z.boolean().default(true),
   region: z.enum(['ca', 'us']).default('ca')
 }).strict();
@@ -105,7 +105,7 @@ export const candidateSetPayloadSchema = z.object({
   receivedAt: z.string().datetime({offset: true}),
   expiresAt: z.string().datetime({offset: true}),
   source: relaySourceSchema,
-  inventory: z.array(normalizedSearchCandidateSchema).min(1).max(30)
+  inventory: z.array(normalizedSearchCandidateSchema).min(1).max(12)
 }).strict();
 
 export const relayRankInputSchema = z.object({
@@ -126,7 +126,7 @@ export const vtoBindingPayloadSchema = z.object({
   candidateId: z.string().trim().min(1).max(220),
   sourceItemId: z.string().trim().min(1).max(180),
   personFileId: z.string().trim().min(1).max(512),
-  garmentImageUrl: z.string().url(),
+  garmentImageUrl: z.string().max(1024).url(),
   candidateSetObservedAt: z.string().datetime({offset: true}),
   createdAt: z.string().datetime({offset: true}),
   expiresAt: z.string().datetime({offset: true})
