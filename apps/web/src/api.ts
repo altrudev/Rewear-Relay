@@ -32,6 +32,7 @@ export type InventorySearchResponse = {
   query: string;
   providerQuery: string;
   observedAt: string;
+  receivedAt: string;
   expiresAt: string;
   candidates: SearchCandidate[];
   candidateSetToken: string | null;
@@ -49,6 +50,7 @@ export type RelayPlan = {
   candidateSet?: {
     provider: 'fixture' | 'serpapi';
     observedAt: string;
+    receivedAt: string;
     expiresAt: string;
   };
 };
