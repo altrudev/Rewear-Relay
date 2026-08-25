@@ -41,6 +41,12 @@ app.get('/api/tryon/:taskId', async (c) => {
   return c.json(await perfect(c).getTryOn(taskId));
 });
 
+app.delete('/api/tryon/:taskId', async (c) => {
+  const taskId = taskIdSchema.parse(c.req.param('taskId'));
+  await perfect(c).deleteTask(taskId);
+  return c.json({ deleted: true });
+});
+
 app.onError((error, c) => {
   console.error('request_failed', { name: error.name, message: error.message });
   const safeMessage = error.message.startsWith('PERFECT_') ? error.message : 'REQUEST_FAILED';

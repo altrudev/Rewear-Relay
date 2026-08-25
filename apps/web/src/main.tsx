@@ -1,6 +1,6 @@
 import React, {useMemo, useState} from 'react';
 import { createRoot } from 'react-dom/client';
-import { createTryOn, pollTryOn, requestUploadTicket, uploadPreparedFile } from './api';
+import { createTryOn, deleteTryOn, pollTryOn, requestUploadTicket, uploadPreparedFile } from './api';
 import { prepareImage, type PreparedImage } from './image';
 import './styles.css';
 
@@ -35,7 +35,8 @@ function Lab() {
   const [status,setStatus]=useState('idle');
   const [error,setError]=useState('');
   const [result,setResult]=useState('');
-  const busy = useMemo(()=>!['idle','done','error'].includes(status),[status]);
+  const [taskId,setTaskId]=useState('');
+  const busy = useMemo(()=>!['idle','done','error','deleted'].includes(status),[status]);
 
   async function choose(file:File, kind:'person'|'garment') {
     setError('');
@@ -47,10 +48,20 @@ function Lab() {
     }
   }
 
+  async function cleanup() {
+    if (!taskId) return;
+    setStatus('deleting provider task + files');
+    await deleteTryOn(taskId);
+    setTaskId('');
+    setResult('');
+    setStatus('deleted');
+  }
+
   async function run() {
     if (!person || !garment || busy) return;
-    setError(''); setResult('');
+    setError('');
     try {
+      if (taskId) await cleanup();
       setStatus('requesting upload tickets');
       const [personTicket,garmentTicket] = await Promise.all([
         requestUploadTicket(person.fileName, person.blob.size, person.contentType),
@@ -60,6 +71,7 @@ function Lab() {
       await Promise.all([uploadPreparedFile(personTicket,person.blob),uploadPreparedFile(garmentTicket,garment.blob)]);
       setStatus('creating virtual try-on');
       const task = await createTryOn(personTicket.fileId, garmentTicket.fileId, category);
+      setTaskId(task.taskId);
       setStatus('queued');
       const url = await pollTryOn(task.taskId, next=>setStatus(next));
       setResult(url);
@@ -68,6 +80,12 @@ function Lab() {
       setError(cause instanceof Error ? cause.message : 'TRY_ON_FAILED');
       setStatus('error');
     }
+  }
+
+  async function deleteCurrent() {
+    setError('');
+    try { await cleanup(); }
+    catch (cause) { setError(cause instanceof Error ? cause.message : 'DELETE_FAILED'); setStatus('error'); }
   }
 
   return <main className="lab shell">
@@ -80,11 +98,12 @@ function Lab() {
       </div>
       <label className="selectrow">Garment category<select value={category} onChange={e=>setCategory(e.target.value)}><option value="auto">Auto</option><option value="outerwear">Outerwear</option><option value="upper_body">Upper body</option><option value="lower_body">Lower body</option><option value="full_body">Full body</option><option value="shoes">Shoes</option></select></label>
       <button className="run" disabled={!person||!garment||busy} onClick={run}>{busy ? status : 'Try this on'}</button>
+      {status === 'deleted' && <div className="notice"><strong>Provider cleanup confirmed</strong><span>Task and associated files deleted.</span></div>}
       {error && <div className="notice error"><strong>Test stopped</strong><span>{error}</span></div>}
-      {result && <section className="result"><div><p className="eyebrow">RESULT</p><h2>See the look on you.</h2><p>AI visualization only. Actual sizing, material, drape and condition may differ.</p></div><img src={result} alt="Perfect Corp virtual try-on result"/></section>}
-      <p className="fineprint">Provider retention is not represented as immediate deletion. Explicit resource cleanup remains a Gate 1 verification item.</p>
+      {result && <section className="result"><div><p className="eyebrow">RESULT</p><h2>See the look on you.</h2><p>AI visualization only. Actual sizing, material, drape and condition may differ.</p><button className="ghost cleanup" onClick={deleteCurrent}>Delete provider task + files</button></div><img src={result} alt="Perfect Corp virtual try-on result"/></section>}
+      <p className="fineprint">Perfect Corp task cleanup is explicit: finished task + associated inputs + generated outputs are deleted only after the provider confirms the deletion request.</p>
     </section>
-    <footer><span>Source → sanitize → direct upload → cloth-v4 → result.</span><span>Altru.dev · 2026</span></footer>
+    <footer><span>Source → sanitize → direct upload → cloth-v4 → result → explicit cleanup.</span><span>Altru.dev · 2026</span></footer>
   </main>;
 }
 

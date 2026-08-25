@@ -29,6 +29,7 @@ export interface VirtualTryOnProvider {
   createUploadTicket(input: UploadTicketRequest): Promise<UploadTicket>;
   createTryOn(input: TryOnRequest): Promise<{ taskId: string }>;
   getTryOn(taskId: string): Promise<TryOnStatus>;
+  deleteTask(taskId: string): Promise<void>;
 }
 
 export class PerfectCorpProvider implements VirtualTryOnProvider {
@@ -80,5 +81,13 @@ export class PerfectCorpProvider implements VirtualTryOnProvider {
     const body = await this.request(`/s2s/v2.0/task/cloth-v4/${encodeURIComponent(taskId)}`);
     const status = body?.data?.task_status ?? 'unknown';
     return { status, resultUrl: body?.data?.results?.url, error: body?.data?.error };
+  }
+
+  async deleteTask(taskId: string): Promise<void> {
+    const body = await this.request('/s2s/v2.0/task/delete', {
+      method: 'POST',
+      body: JSON.stringify({ task_id: taskId })
+    });
+    if (body?.status !== 200) throw new Error('PERFECT_DELETE_UNCONFIRMED');
   }
 }

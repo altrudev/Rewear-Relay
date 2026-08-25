@@ -47,6 +47,10 @@ export async function getTryOn(taskId: string) {
   return json<{status:string; resultUrl?:string; error?:unknown}>(`/api/tryon/${encodeURIComponent(taskId)}`);
 }
 
+export async function deleteTryOn(taskId: string) {
+  return json<{deleted:true}>(`/api/tryon/${encodeURIComponent(taskId)}`, {method:'DELETE'});
+}
+
 export async function pollTryOn(taskId: string, onStatus?: (status:string)=>void) {
   for (let attempt = 0; attempt < 90; attempt++) {
     const state = await getTryOn(taskId);

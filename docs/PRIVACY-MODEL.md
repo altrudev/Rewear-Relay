@@ -10,10 +10,14 @@ Before upload: decode → normalize orientation → resize if needed → canvas/
 
 ## Provider retention reality
 
-Perfect Corp documentation states uploaded files and task IDs may be retained for 30 days by default, while result download URLs expire sooner. Therefore Rewear must not describe provider-side assets as ephemeral merely because URLs expire. Our target behavior is explicit provider task/resource deletion after a fitting-room session ends, once the exact deletion endpoint is verified against current API documentation/account capabilities.
+Perfect Corp documentation states uploaded files and task IDs may be retained for 30 days by default, while result download URLs expire sooner. Rewear therefore does not infer deletion from URL expiry.
 
-## User-facing claim
+Perfect Corp Task Management provides `POST /s2s/v2.0/task/delete` for a finished `task_id`; the documented behavior deletes the task, associated input files, and generated outputs. Rewear exposes cleanup only after provider confirmation and does not claim deletion when that request fails.
+
+## User-facing claims
 
 Allowed: “Rewear Relay does not store your fitting-room photo.”
 
-Not allowed until verified cleanup succeeds: “Your photo is immediately deleted everywhere.”
+Allowed after successful task cleanup: “Provider task and associated files deleted.”
+
+Not allowed: “Nothing ever leaves your device.”

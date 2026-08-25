@@ -11,8 +11,11 @@
 - [x] Browser EXIF/GPS stripping by decode + re-encode
 - [x] Browser direct-to-provider upload flow
 - [x] Vertical-slice `/lab` route with polling/result rendering
+- [x] Verified Perfect task-management cleanup contract
+- [x] Explicit finished-task/resource deletion path
 - [x] Binding mismatch test
 - [x] Secret-not-returned provider test
+- [x] Cleanup endpoint test
 
 ## Gate 1 — real provider proof
 
@@ -22,7 +25,7 @@
 - [ ] Verify real upload PUT headers/CORS from mobile browser
 - [ ] Verify `garment_category=auto` and `outerwear`
 - [ ] Capture real success and failure payloads
-- [ ] Verify exact provider task/resource deletion endpoint before implementation
+- [ ] Confirm cleanup succeeds for real completed cloth-v4 task
 
 ## Gate 2 — user-facing fitting room
 

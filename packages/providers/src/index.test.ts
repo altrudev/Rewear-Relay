@@ -24,4 +24,14 @@ describe('PerfectCorpProvider', () => {
     expect(String(init?.body)).toContain('garment-1');
     expect(String(init?.body)).toContain('auto');
   });
+
+  it('uses Perfect task management cleanup for finished task resources', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(JSON.stringify({status:200}),{status:200,headers:{'content-type':'application/json'}}));
+    const provider = new PerfectCorpProvider('secret-key');
+    await provider.deleteTask('task-1');
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(String(url)).toContain('/s2s/v2.0/task/delete');
+    expect(init?.method).toBe('POST');
+    expect(String(init?.body)).toContain('task-1');
+  });
 });
