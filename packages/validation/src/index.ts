@@ -112,3 +112,27 @@ export const relayRankInputSchema = z.object({
   candidateSetToken: z.string().min(20).max(60_000),
   intent: z.string().trim().min(1).max(800).nullable().optional()
 }).strict();
+
+export const candidateTryOnSchema = z.object({
+  candidateSetToken: z.string().min(20).max(60_000),
+  candidateId: z.string().trim().min(1).max(220),
+  personFileId: z.string().trim().min(1).max(512),
+  garmentCategory: z.enum(['auto', 'full_body', 'upper_body', 'lower_body', 'shoes', 'outerwear']).optional()
+}).strict();
+
+export const vtoBindingPayloadSchema = z.object({
+  version: z.literal(1),
+  taskId: taskIdSchema,
+  candidateId: z.string().trim().min(1).max(220),
+  sourceItemId: z.string().trim().min(1).max(180),
+  personFileId: z.string().trim().min(1).max(512),
+  garmentImageUrl: z.string().url(),
+  candidateSetObservedAt: z.string().datetime({offset: true}),
+  createdAt: z.string().datetime({offset: true}),
+  expiresAt: z.string().datetime({offset: true})
+}).strict();
+
+export const candidateTaskActionSchema = z.object({
+  taskId: taskIdSchema,
+  bindingToken: z.string().min(20).max(30_000)
+}).strict();
