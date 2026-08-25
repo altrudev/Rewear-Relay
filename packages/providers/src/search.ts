@@ -28,6 +28,7 @@ export interface SearchResponse {
   query: string;
   providerQuery: string;
   observedAt: string;
+  receivedAt: string;
   candidates: NormalizedSearchCandidate[];
 }
 
@@ -72,13 +73,15 @@ export class FixtureSearchProvider implements SearchProvider {
   constructor(private readonly now: () => Date = () => new Date()) {}
 
   async search(input: SearchRequest): Promise<SearchResponse> {
-    const observedAt = this.now().toISOString();
+    const receivedAt = this.now().toISOString();
+    const observedAt = receivedAt;
     const maxResults = Math.max(1, Math.min(input.maxResults ?? 12, 30));
     return {
       provider: 'fixture',
       query: input.query,
       providerQuery: input.query,
       observedAt,
+      receivedAt,
       candidates: FIXTURE_CANDIDATES.slice(0, maxResults).map((candidate) => ({...candidate, observedAt}))
     };
   }
@@ -96,6 +99,11 @@ type SerpShoppingResult = {
   thumbnail?: unknown;
   serpapi_thumbnail?: unknown;
   second_hand_condition?: unknown;
+};
+
+type SerpShoppingBody = {
+  search_metadata?: { created_at?: unknown };
+  shopping_results?: unknown;
 };
 
 function text(value: unknown, max = 500): string | undefined {
@@ -124,6 +132,12 @@ function safeHttpUrl(value: unknown): string | undefined {
   }
 }
 
+function serpObservedAt(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined;
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? new Date(parsed).toISOString() : undefined;
+}
+
 export class SerpApiSearchProvider implements SearchProvider {
   constructor(
     private readonly apiKey: string,
@@ -141,7 +155,6 @@ export class SerpApiSearchProvider implements SearchProvider {
     const providerQuery = strictSecondhand ? `${query} second hand used pre-owned` : query;
     const region = input.region ?? 'ca';
     const maxResults = Math.max(1, Math.min(input.maxResults ?? 12, 30));
-    const observedAt = this.now().toISOString();
 
     const url = new URL('https://serpapi.com/search.json');
     url.searchParams.set('engine', 'google_shopping');
@@ -160,7 +173,9 @@ export class SerpApiSearchProvider implements SearchProvider {
     }
 
     if (!response.ok) throw new Error(`SERPAPI_HTTP_${response.status}`);
-    const body = await response.json() as {shopping_results?: unknown};
+    const body = await response.json() as SerpShoppingBody;
+    const receivedAt = this.now().toISOString();
+    const observedAt = serpObservedAt(body.search_metadata?.created_at) ?? receivedAt;
     const rows = Array.isArray(body.shopping_results) ? body.shopping_results as SerpShoppingResult[] : [];
 
     const candidates: NormalizedSearchCandidate[] = [];
@@ -199,6 +214,7 @@ export class SerpApiSearchProvider implements SearchProvider {
       query,
       providerQuery,
       observedAt,
+      receivedAt,
       candidates
     };
   }
