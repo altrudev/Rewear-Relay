@@ -1,5 +1,7 @@
 import type { GarmentCategory } from '@rewear/domain';
 
+export * from './search';
+
 export interface UploadTicketRequest {
   fileName: string;
   fileSize: number;
