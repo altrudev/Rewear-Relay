@@ -110,6 +110,9 @@ if ! curl --fail --silent --max-time 2 http://127.0.0.1:8787/api/health >/dev/nu
   exit 2
 fi
 
+printf '\n==> Proving signed search -> Rig ranking path\n'
+REWEAR_EDGE_URL=http://127.0.0.1:8787 bash scripts/smoke-relay.sh
+
 printf '\n==> Starting Rewear Relay web app\n'
 npm run dev:web -- --host 0.0.0.0 --port 5173 >"$TMP_BASE/web.log" 2>&1 &
 WEB_PID=$!
@@ -126,7 +129,7 @@ fi
 
 cat <<EOF
 
-PASS: local Rewear Relay stack is running.
+PASS: local Rewear Relay stack is running and the signed Relay smoke path passed.
 
 Web:      http://127.0.0.1:5173/relay-lab
 Edge:     http://127.0.0.1:8787/api/health
