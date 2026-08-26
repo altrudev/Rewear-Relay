@@ -12,6 +12,39 @@ Primary product loop:
 
 `SEARCH → RANK → SELECT → VISUALIZE → DECIDE → RELAY`
 
+## Run the zero-cost development path
+
+On the target Ubuntu host, use the gates in this order:
+
+```bash
+npm run host:check
+npm run gate
+```
+
+`host:check` is non-mutating. `gate` runs the Node workspace typecheck/tests/build plus Rust formatting/check/clippy/tests.
+
+For the local product loop, first choose an Ollama model that is **already installed** on the machine, then:
+
+```bash
+export RIG_MODEL='<installed-ollama-model>'
+npm run dev:local:rig
+```
+
+The launcher:
+
+- never pulls a model automatically;
+- keeps search in fixture mode, so it cannot spend SerpApi credits;
+- generates an ephemeral search-receipt signing key for the local session;
+- starts Ollama, Rig, Edge and the PWA;
+- runs `npm run smoke:relay` before exposing the web UI;
+- refuses to report success if the signed fixture search → Rig → candidate/source closure path fails.
+
+When it passes, open:
+
+`http://127.0.0.1:5173/relay-lab`
+
+Perfect Corp is deliberately not configured by this zero-cost launcher. Live search and real VTO are enabled only after the local path passes and their secrets are intentionally supplied at runtime.
+
 ## Architecture principles
 
 - Perfect Corp Clothes VTO is the central visualization engine.
@@ -25,9 +58,10 @@ Primary product loop:
 - Search starts in fixture mode. Live SerpApi occurs only after explicit server configuration.
 - Strict resale search admits only provider results carrying explicit secondhand-condition evidence.
 - Search evidence time and Rewear receipt time are preserved separately so cached evidence is not mislabeled as fresh.
+- Shopping handoff URLs are normalized to HTTP(S); garment image evidence used for candidate VTO is restricted to HTTPS.
 - User images are uploaded directly from the browser to Perfect Corp presigned upload targets; Rewear does not proxy or persist raw photos.
 - A Perfect candidate task can be created only after explicit user selection of a candidate contained in the signed search receipt.
-- Candidate VTO uses the exact signed garment image as Perfect Corp `ref_file_url` and creates a separately scoped signed task binding.
+- Candidate VTO uses the exact signed HTTPS garment image as Perfect Corp `ref_file_url` and creates a separately scoped signed task binding.
 - Perfect Corp, search, receipt-signing and model-provider credentials remain server-side only.
 - Completed Perfect tasks/resources are explicitly deleted when the user deletes or switches a bound try-on.
 - AI visualization is never presented as physical sizing evidence.
@@ -41,6 +75,7 @@ Primary product loop:
 - `packages/providers` — Perfect Corp and search provider adapters
 - `packages/validation` — shared validation and receipt payload schemas
 - `packages/receipts` — provenance/preview receipt support
+- `scripts` — host preflight, deterministic gate, signed Relay smoke and local Rig launcher
 - `docs` — architecture, privacy, threat model, DDC, runtime and hackathon documentation
 
 ## Development labs
@@ -85,6 +120,7 @@ See:
 - `docs/DDC-ASSESSMENT.md`
 - `docs/THREAT-MODEL.md`
 - `docs/CONFIGURATION.md`
+- `docs/BUILD-GATES.md`
 
 ## Current status
 
@@ -99,7 +135,7 @@ Implemented:
 - SerpApi Google Shopping adapter;
 - strict provider-evidenced secondhand filtering;
 - provider observation time + Rewear receipt time separation;
-- safe HTTP(S) outbound URL normalization;
+- safe HTTP(S) shopping-link normalization and HTTPS-only VTO garment-image evidence;
 - HMAC-signed candidate-set receipts with expiry;
 - cryptographically separate candidate-set and VTO-binding token scopes;
 - browser-proof candidate closure for Rig ranking;
@@ -114,14 +150,19 @@ Implemented:
 - status/display binding to exact candidate + source item + user file + task;
 - automatic cleanup attempt for failed bound tasks once a task ID exists;
 - explicit UI disclosure of the residual provider-retention fallback when upload succeeds but task creation fails before a task ID exists;
+- host/toolchain preflight;
+- one-command deterministic runtime gate;
+- signed Relay smoke harness with positive and invented-candidate negative execution checks;
+- zero-cost local Rig/Ollama launcher;
 - fitting-room and integrated Relay development labs;
 - DDC/threat-model coverage of search, reasoning and transformation transitions.
 
-Still requires runtime evidence on an execution host:
+Still requires runtime evidence on the actual execution host:
 
-- JavaScript/TypeScript dependency install, typecheck and Vitest pass;
-- Rust `cargo fmt`, compile, clippy and test pass;
+- first trusted dependency install and committed `package-lock.json`;
+- successful `npm run gate` with recorded Node/npm/rustc/cargo versions;
 - measured Ollama model quality and resource use;
+- browser exercise of the real local Edge → Rig path;
 - Edge → Rig HTTPS connectivity outside local development;
 - live SerpApi response against real secondhand queries;
 - a real Perfect Corp `cloth-v4` transaction;
