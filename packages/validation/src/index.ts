@@ -17,21 +17,21 @@ export const taskIdSchema = z.string().min(8).max(512);
 const moneySchema = z.number().finite().nonnegative().max(1_000_000).nullable().optional();
 const currencySchema = z.string().trim().min(3).max(8).nullable().optional();
 const garmentCategorySchema = z.string().trim().min(1).max(64).nullable().optional();
-const safeHttpUrlSchema = z.string().max(1024).url().refine((value) => {
+const httpUrlSchema = z.string().max(1024).url().refine((value) => {
   try {
     const protocol = new URL(value).protocol;
     return protocol === 'https:' || protocol === 'http:';
   } catch {
     return false;
   }
-}, 'URL must use http or https').optional();
-const safeHttpsUrlSchema = z.string().max(1024).url().refine((value) => {
+}, 'URL must use http or https');
+const httpsUrlSchema = z.string().max(1024).url().refine((value) => {
   try {
     return new URL(value).protocol === 'https:';
   } catch {
     return false;
   }
-}, 'URL must use https').optional();
+}, 'URL must use https');
 
 export const relaySourceSchema = z.object({
   id: z.string().trim().min(1).max(180),
@@ -89,8 +89,8 @@ export const normalizedSearchCandidateSchema = z.object({
   price: moneySchema,
   priceText: z.string().trim().min(1).max(120).optional(),
   currency: currencySchema,
-  productUrl: safeHttpUrlSchema,
-  imageUrl: safeHttpsUrlSchema,
+  productUrl: httpUrlSchema.optional(),
+  imageUrl: httpsUrlSchema.optional(),
   secondHandCondition: z.string().trim().min(1).max(120).optional(),
   garmentCategory: z.enum(['auto', 'full_body', 'upper_body', 'lower_body', 'shoes', 'outerwear']).optional()
 }).strict();
@@ -133,7 +133,7 @@ export const vtoBindingPayloadSchema = z.object({
   candidateId: z.string().trim().min(1).max(220),
   sourceItemId: z.string().trim().min(1).max(180),
   personFileId: z.string().trim().min(1).max(512),
-  garmentImageUrl: safeHttpsUrlSchema.unwrap(),
+  garmentImageUrl: httpsUrlSchema,
   candidateSetObservedAt: z.string().datetime({offset: true}),
   createdAt: z.string().datetime({offset: true}),
   expiresAt: z.string().datetime({offset: true})
