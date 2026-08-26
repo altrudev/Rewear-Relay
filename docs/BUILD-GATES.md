@@ -1,5 +1,17 @@
 # Build Gates
 
+## Canonical execution order
+
+On the target Ubuntu host, use these gates in order:
+
+1. `npm run host:check` — non-mutating host/toolchain preflight.
+2. `npm run gate` — Node + TypeScript + tests + production build + Rust fmt/check/clippy/tests.
+3. Set `RIG_MODEL` to an **already installed** Ollama model.
+4. `npm run dev:local:rig` — starts local Ollama/Rig/fixture Edge/web and runs the signed Relay smoke before presenting the UI.
+5. Only after the zero-cost path passes, explicitly enable SerpApi and Perfect Corp credentials.
+
+No step above silently enables a paid provider, auto-pulls an Ollama model, or commits secrets.
+
 ## Gate 0 — foundation
 
 - [x] Repository initialized from scratch
@@ -20,12 +32,14 @@
 
 Code exists; runtime evidence is still required on an execution host.
 
+- [x] Non-mutating `npm run host:check` preflight
 - [x] One-command `npm run gate` entry point
 - [x] Node workspace typecheck included
 - [x] JavaScript/TypeScript tests included
 - [x] Production web build included
 - [x] Rust formatting/check/clippy/tests included
 - [x] Optional Rig/Ollama health smoke test included
+- [ ] Execute `npm run host:check` successfully on the target host
 - [ ] Execute `npm run gate` successfully on the target host
 - [ ] Record Node/npm/rustc/cargo versions with the passing result
 - [ ] Commit the resulting `package-lock.json` after the first trusted install
@@ -39,9 +53,12 @@ Code exists; runtime evidence is still required on an execution host.
 - [x] MockCompletionModel zero-cost tests
 - [x] Source/predecessor and candidate-closure gates
 - [x] Prompt-injection containment for marketplace/user strings
+- [x] `npm run smoke:relay` signed fixture search → Rig → closure harness
+- [x] Smoke harness rejects an invented ranked candidate in negative execution testing
 - [x] `npm run dev:local:rig` zero-cost local launcher
 - [x] Launcher keeps search in fixture mode and generates an ephemeral signing key
 - [x] Launcher never auto-pulls an Ollama model
+- [x] Launcher refuses to start the web UI until the signed Relay smoke passes
 - [ ] Start local stack with an explicitly installed Ollama model
 - [ ] Exercise `/relay-lab` through browser → Edge → Rig → validated plan
 - [ ] Capture latency and memory/CPU measurements
@@ -53,7 +70,8 @@ Code exists; runtime evidence is still required on an execution host.
 - [x] SerpApi Google Shopping adapter
 - [x] Current-result normalization
 - [x] Provider-evidenced strict secondhand gate
-- [x] Safe outbound URL normalization
+- [x] Safe outbound shopping URL normalization
+- [x] VTO garment image evidence restricted to HTTPS
 - [x] Provider observation time separated from Rewear receipt time
 - [x] HMAC-signed candidate-set receipt
 - [x] Receipt expiry and tamper rejection
@@ -69,7 +87,7 @@ Code exists; runtime evidence is still required on an execution host.
 
 - [x] Rig recommendation requires explicit user selection before VTO
 - [x] Candidate is recovered from the signed search receipt
-- [x] Perfect candidate VTO uses signed `ref_file_url` evidence
+- [x] Perfect candidate VTO uses signed HTTPS `ref_file_url` evidence
 - [x] Separate scoped HMAC VTO binding receipt
 - [x] Task binding includes candidate, source item, user file, garment image and Perfect task ID
 - [x] Poll/display fails closed on candidate/source mismatch
