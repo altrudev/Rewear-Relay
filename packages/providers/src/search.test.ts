@@ -67,7 +67,8 @@ describe('SerpApiSearchProvider', () => {
       price: 79,
       priceText: '$79.00',
       secondHandCondition: 'used',
-      observedAt: '2026-08-25T20:35:00.000Z'
+      observedAt: '2026-08-25T20:35:00.000Z',
+      imageUrl: 'https://serpapi.com/images/example.webp'
     });
     expect(result.candidates[0].currency).toBeUndefined();
     expect(seenUrls[0]).toContain('engine=google_shopping');
@@ -91,6 +92,25 @@ describe('SerpApiSearchProvider', () => {
     const provider = new SerpApiSearchProvider('test-key', fetchImpl as typeof fetch);
     const result = await provider.search({query: 'jacket'});
     expect(result.candidates[0].productUrl).toBeUndefined();
+    expect(result.candidates[0].imageUrl).toBeUndefined();
+  });
+
+  it('keeps HTTP shopping links but rejects HTTP garment-image evidence', async () => {
+    const fetchImpl = async () => jsonResponse({
+      shopping_results: [{
+        product_id: 'used-3',
+        title: 'Used jacket',
+        source: 'Example Resale',
+        extracted_price: 65,
+        second_hand_condition: 'used',
+        product_link: 'http://example.com/product/used-3',
+        thumbnail: 'http://example.com/image.jpg'
+      }]
+    });
+
+    const provider = new SerpApiSearchProvider('test-key', fetchImpl as typeof fetch);
+    const result = await provider.search({query: 'jacket'});
+    expect(result.candidates[0].productUrl).toBe('http://example.com/product/used-3');
     expect(result.candidates[0].imageUrl).toBeUndefined();
   });
 });
