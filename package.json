@@ -8,6 +8,7 @@
     "dev:web": "npm run dev -w @rewear/web",
     "dev:edge": "npm run dev -w @rewear/edge",
     "dev:local:rig": "bash scripts/dev-local-rig.sh",
+    "smoke:relay": "bash scripts/smoke-relay.sh",
     "build": "npm run build --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
