@@ -92,7 +92,7 @@ if ! curl --fail --silent --max-time 2 http://127.0.0.1:8788/health >/dev/null; 
 fi
 
 printf '\n==> Starting local Edge in fixture-search mode\n'
-npm run dev:edge -- \
+npm run dev -w @rewear/edge -- \
   --port 8787 \
   --var "SEARCH_PROVIDER:fixture" \
   --var "SEARCH_SIGNING_KEY:$SEARCH_SIGNING_KEY" \
@@ -114,7 +114,7 @@ printf '\n==> Proving signed search -> Rig ranking path\n'
 REWEAR_EDGE_URL=http://127.0.0.1:8787 bash scripts/smoke-relay.sh
 
 printf '\n==> Starting Rewear Relay web app\n'
-npm run dev:web -- --host 0.0.0.0 --port 5173 >"$TMP_BASE/web.log" 2>&1 &
+npm run dev -w @rewear/web -- --host 0.0.0.0 --port 5173 >"$TMP_BASE/web.log" 2>&1 &
 WEB_PID=$!
 
 for _ in $(seq 1 45); do
