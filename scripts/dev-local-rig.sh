@@ -34,12 +34,6 @@ if [[ ! -d node_modules ]]; then
   npm install --no-audit --no-fund
 fi
 
-if ! ollama list 2>/dev/null | awk 'NR>1 {print $1}' | grep -Fxq "$RIG_MODEL"; then
-  printf 'FAIL: Ollama model is not installed locally: %s\n' "$RIG_MODEL" >&2
-  printf 'Install it deliberately with: ollama pull %q\n' "$RIG_MODEL" >&2
-  exit 2
-fi
-
 TMP_BASE="${TMPDIR:-/tmp}/rewear-relay-local"
 mkdir -p "$TMP_BASE"
 SEARCH_SIGNING_KEY="${SEARCH_SIGNING_KEY:-$(openssl rand -hex 32)}"
@@ -71,6 +65,12 @@ fi
 if ! curl --fail --silent --max-time 2 http://127.0.0.1:11434/api/tags >/dev/null; then
   cat "$TMP_BASE/ollama.log" >&2 2>/dev/null || true
   printf 'FAIL: Ollama did not become healthy.\n' >&2
+  exit 2
+fi
+
+if ! ollama list 2>/dev/null | awk 'NR>1 {print $1}' | grep -Fxq "$RIG_MODEL"; then
+  printf 'FAIL: Ollama model is not installed locally: %s\n' "$RIG_MODEL" >&2
+  printf 'Install it deliberately with: ollama pull %q\n' "$RIG_MODEL" >&2
   exit 2
 fi
 
