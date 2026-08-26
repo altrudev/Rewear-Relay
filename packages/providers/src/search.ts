@@ -133,6 +133,16 @@ function safeHttpUrl(value: unknown): string | undefined {
   }
 }
 
+function safeHttpsUrl(value: unknown): string | undefined {
+  const normalized = safeHttpUrl(value);
+  if (!normalized) return undefined;
+  try {
+    return new URL(normalized).protocol === 'https:' ? normalized : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 function serpObservedAt(value: unknown): string | undefined {
   if (typeof value !== 'string') return undefined;
   const parsed = Date.parse(value);
@@ -205,7 +215,7 @@ export class SerpApiSearchProvider implements SearchProvider {
         price: finitePrice(row.extracted_price),
         priceText: text(row.price, 120),
         productUrl: safeHttpUrl(row.product_link),
-        imageUrl: safeHttpUrl(row.serpapi_thumbnail) ?? safeHttpUrl(row.thumbnail),
+        imageUrl: safeHttpsUrl(row.serpapi_thumbnail) ?? safeHttpsUrl(row.thumbnail),
         secondHandCondition: condition
       });
     }
