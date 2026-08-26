@@ -5,6 +5,7 @@
   "description": "Private virtual fitting room for secondhand fashion.",
   "workspaces": ["apps/*", "packages/*"],
   "scripts": {
+    "host:check": "bash scripts/host-check.sh",
     "dev:web": "npm run dev -w @rewear/web",
     "dev:edge": "npm run dev -w @rewear/edge",
     "dev:local:rig": "bash scripts/dev-local-rig.sh",
